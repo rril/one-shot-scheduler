@@ -128,7 +128,6 @@ async def _register_sidebar_panel(hass: HomeAssistant) -> None:
         sidebar_icon="mdi:timer-cog-outline",
         require_admin=False,
         config={},
-        config_panel_domain=DOMAIN,
         embed_iframe=False,
     )
 
