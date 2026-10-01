@@ -1,3 +1,33 @@
+
+// Automatic Overview Favorites render entities with Home Assistant's normal
+// more-info behavior. Turn our dedicated shortcut sensor into a local
+// navigation action instead, so a Favorite opens the scheduler with the
+// underlying switch preselected.
+if (!window.__oneShotSchedulerShortcutHookInstalled) {
+  window.__oneShotSchedulerShortcutHookInstalled = true;
+
+  window.addEventListener("hass-more-info", (event) => {
+    const entityId = event?.detail?.entityId || event?.detail?.entity_id;
+    if (!entityId) return;
+
+    const homeAssistant = document.querySelector("home-assistant");
+    const hass = homeAssistant?.hass;
+    const state = hass?.states?.[entityId];
+    if (state?.attributes?.one_shot_scheduler_shortcut !== "true") return;
+
+    const sourceEntityId = state.attributes.source_entity_id;
+    if (!sourceEntityId) return;
+
+    event.preventDefault?.();
+    event.stopImmediatePropagation?.();
+    event.stopPropagation?.();
+
+    const url = `/one-shot-scheduler?entity=${encodeURIComponent(sourceEntityId)}`;
+    history.pushState(null, "", url);
+    window.dispatchEvent(new Event("location-changed"));
+  }, true);
+}
+
 class OneShotSchedulerCard extends HTMLElement {
   constructor() {
     super();
