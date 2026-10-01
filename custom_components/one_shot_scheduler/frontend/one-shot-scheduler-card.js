@@ -9,6 +9,7 @@ class OneShotSchedulerCard extends HTMLElement {
 
   setConfig(config) {
     this._config = config || {};
+    if (this._initialized) this._updateEntityOptions(true);
   }
 
   set hass(hass) {
@@ -19,15 +20,11 @@ class OneShotSchedulerCard extends HTMLElement {
     }
     this._updateEntityOptions();
     this._renderSchedules();
+    this._renderQuickStatus();
   }
 
-  getCardSize() {
-    return 5;
-  }
-
-  static getStubConfig() {
-    return {};
-  }
+  getCardSize() { return 6; }
+  static getStubConfig() { return {}; }
 
   _isHebrew() {
     return (this._hass?.language || navigator.language || "").toLowerCase().startsWith("he");
@@ -35,44 +32,28 @@ class OneShotSchedulerCard extends HTMLElement {
 
   _t(key) {
     const he = {
-      title: "הפעלה חד־פעמית",
-      switch: "מפסק",
-      choose: "בחר מפסק",
-      start: "התחלה",
-      now: "עכשיו",
-      at: "בשעה",
-      end: "סיום",
-      duration: "אחרי",
-      minutes: "דקות",
-      create: "קבע הפעלה",
-      pending: "תזמונים פעילים",
-      none: "אין תזמונים פעילים",
-      cancel: "בטל",
-      active: "פעיל עכשיו",
-      scheduled: "מתוכנן",
+      title: "הפעלה חד־פעמית", switch: "מפסק", choose: "בחר מפסק",
+      quick: "הפעלה מהירה", quickHint: "כל לחיצה מפעילה מיד ומוסיפה לזמן שכבר נקבע",
+      add30: "+30 דקות", add60: "+שעה", activeUntil: "פעיל עד",
+      start: "התחלה", now: "עכשיו", at: "בשעה", end: "סיום",
+      duration: "אחרי", minutes: "דקות", create: "קבע הפעלה",
+      pending: "תזמונים פעילים", none: "אין תזמונים פעילים", cancel: "בטל",
+      active: "פעיל עכשיו", scheduled: "מתוכנן",
       invalid: "יש לבחור זמנים תקינים. זמן הסיום חייב להיות אחרי זמן ההתחלה.",
-      failed: "יצירת התזמון נכשלה",
-      cancelFailed: "ביטול התזמון נכשל"
+      selectFirst: "יש לבחור מפסק קודם", failed: "יצירת התזמון נכשלה",
+      cancelFailed: "ביטול התזמון נכשל", quickFailed: "ההפעלה המהירה נכשלה"
     };
     const en = {
-      title: "One-shot switch",
-      switch: "Switch",
-      choose: "Choose a switch",
-      start: "Start",
-      now: "Now",
-      at: "At time",
-      end: "End",
-      duration: "After",
-      minutes: "minutes",
-      create: "Schedule",
-      pending: "Active schedules",
-      none: "No active schedules",
-      cancel: "Cancel",
-      active: "Active now",
-      scheduled: "Scheduled",
+      title: "One-shot switch", switch: "Switch", choose: "Choose a switch",
+      quick: "Quick start", quickHint: "Each press starts immediately and adds to the already scheduled time",
+      add30: "+30 minutes", add60: "+1 hour", activeUntil: "Active until",
+      start: "Start", now: "Now", at: "At time", end: "End",
+      duration: "After", minutes: "minutes", create: "Schedule",
+      pending: "Active schedules", none: "No active schedules", cancel: "Cancel",
+      active: "Active now", scheduled: "Scheduled",
       invalid: "Choose valid times. End must be after start.",
-      failed: "Failed to create schedule",
-      cancelFailed: "Failed to cancel schedule"
+      selectFirst: "Choose a switch first", failed: "Failed to create schedule",
+      cancelFailed: "Failed to cancel schedule", quickFailed: "Quick start failed"
     };
     return (this._isHebrew() ? he : en)[key] || key;
   }
@@ -82,28 +63,37 @@ class OneShotSchedulerCard extends HTMLElement {
     this.shadowRoot.innerHTML = `
       <style>
         :host { display:block; }
-        ha-card { padding: 16px; direction:${rtl ? "rtl" : "ltr"}; }
-        h2 { margin: 0 0 16px; font-size: 1.35rem; font-weight: 500; }
-        .field { margin: 12px 0; }
-        .label { font-size: .9rem; color: var(--secondary-text-color); margin-bottom: 6px; }
-        select, input[type="datetime-local"], input[type="number"] {
-          box-sizing: border-box; width: 100%; min-height: 44px; padding: 8px 10px;
-          color: var(--primary-text-color); background: var(--card-background-color);
-          border: 1px solid var(--divider-color); border-radius: 8px; font: inherit;
+        ha-card { padding:16px; direction:${rtl ? "rtl" : "ltr"}; }
+        h2 { margin:0 0 16px; font-size:1.35rem; font-weight:500; }
+        h3 { margin:0 0 10px; font-size:1rem; font-weight:600; }
+        .field { margin:12px 0; }
+        .label { font-size:.9rem; color:var(--secondary-text-color); margin-bottom:6px; }
+        select,input[type="datetime-local"],input[type="number"] {
+          box-sizing:border-box; width:100%; min-height:44px; padding:8px 10px;
+          color:var(--primary-text-color); background:var(--card-background-color);
+          border:1px solid var(--divider-color); border-radius:8px; font:inherit;
         }
+        .quickbox { margin:14px 0 18px; padding:12px; border:1px solid var(--divider-color); border-radius:12px; }
+        .quickrow { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+        .quickbtn {
+          min-height:48px; border:1px solid var(--primary-color); border-radius:10px;
+          background:var(--card-background-color); color:var(--primary-color);
+          font:inherit; font-weight:700; cursor:pointer;
+        }
+        .quickbtn:disabled { opacity:.45; cursor:default; }
+        .quickhint,.quickstatus { color:var(--secondary-text-color); font-size:.85rem; margin-top:8px; }
+        .quickstatus { color:var(--primary-text-color); font-weight:500; min-height:1.1em; }
         .modes { display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
         .mode { display:flex; gap:6px; align-items:center; cursor:pointer; }
-        .inline { display:grid; grid-template-columns: 1fr auto; gap:8px; align-items:center; margin-top:8px; }
-        .duration { display:grid; grid-template-columns: minmax(80px, 140px) auto; gap:8px; align-items:center; margin-top:8px; }
+        .duration { display:grid; grid-template-columns:minmax(80px,140px) auto; gap:8px; align-items:center; margin-top:8px; }
         button.primary {
           width:100%; margin-top:16px; min-height:44px; border:0; border-radius:10px;
-          background: var(--primary-color); color: var(--text-primary-color, white);
-          font: inherit; font-weight:600; cursor:pointer;
+          background:var(--primary-color); color:var(--text-primary-color,white);
+          font:inherit; font-weight:600; cursor:pointer;
         }
         button.primary:disabled { opacity:.55; cursor:default; }
-        .error { color: var(--error-color); margin-top:8px; min-height:1.2em; }
+        .error { color:var(--error-color); margin-top:8px; min-height:1.2em; }
         .divider { height:1px; background:var(--divider-color); margin:18px 0 14px; }
-        h3 { margin:0 0 10px; font-size:1rem; font-weight:600; }
         .schedule { display:grid; grid-template-columns:1fr auto; gap:12px; padding:10px 0; border-top:1px solid var(--divider-color); }
         .schedule:first-of-type { border-top:0; }
         .name { font-weight:600; }
@@ -118,6 +108,16 @@ class OneShotSchedulerCard extends HTMLElement {
         <div class="field">
           <div class="label">${this._t("switch")}</div>
           <select id="entity"><option value="">${this._t("choose")}</option></select>
+        </div>
+
+        <div class="quickbox">
+          <h3>${this._t("quick")}</h3>
+          <div class="quickrow">
+            <button id="quick30" class="quickbtn">${this._t("add30")}</button>
+            <button id="quick60" class="quickbtn">${this._t("add60")}</button>
+          </div>
+          <div class="quickhint">${this._t("quickHint")}</div>
+          <div id="quickStatus" class="quickstatus"></div>
         </div>
 
         <div class="field">
@@ -149,7 +149,10 @@ class OneShotSchedulerCard extends HTMLElement {
 
     this.shadowRoot.querySelectorAll('input[name="startMode"]').forEach(el => el.addEventListener("change", () => this._syncModeVisibility()));
     this.shadowRoot.querySelectorAll('input[name="endMode"]').forEach(el => el.addEventListener("change", () => this._syncModeVisibility()));
+    this.shadowRoot.getElementById("entity").addEventListener("change", () => this._renderQuickStatus());
     this.shadowRoot.getElementById("create").addEventListener("click", () => this._createSchedule());
+    this.shadowRoot.getElementById("quick30").addEventListener("click", () => this._addTime(30));
+    this.shadowRoot.getElementById("quick60").addEventListener("click", () => this._addTime(60));
     this._setDefaultDateTimes();
   }
 
@@ -175,22 +178,65 @@ class OneShotSchedulerCard extends HTMLElement {
     this.shadowRoot.getElementById("endAtWrap").style.display = endMode === "at" ? "block" : "none";
   }
 
-  _updateEntityOptions() {
+  _updateEntityOptions(force=false) {
     if (!this._hass || !this.shadowRoot) return;
     const select = this.shadowRoot.getElementById("entity");
     if (!select) return;
     const current = select.value;
+    const desired = current || this._config.entity || "";
     const switches = Object.values(this._hass.states)
       .filter(s => s.entity_id.startsWith("switch."))
-      .sort((a, b) => (a.attributes.friendly_name || a.entity_id).localeCompare(b.attributes.friendly_name || b.entity_id, this._hass.language));
+      .sort((a,b) => (a.attributes.friendly_name || a.entity_id).localeCompare(b.attributes.friendly_name || b.entity_id, this._hass.language));
     const signature = switches.map(s => `${s.entity_id}|${s.attributes.friendly_name || ""}`).join(";");
-    if (select.dataset.signature === signature) return;
+    if (!force && select.dataset.signature === signature && (!desired || select.value === desired)) return;
     select.dataset.signature = signature;
     select.innerHTML = `<option value="">${this._t("choose")}</option>` + switches.map(s => {
       const name = this._escape(s.attributes.friendly_name || s.entity_id);
       return `<option value="${this._escape(s.entity_id)}">${name}</option>`;
     }).join("");
-    if (switches.some(s => s.entity_id === current)) select.value = current;
+    if (switches.some(s => s.entity_id === desired)) select.value = desired;
+  }
+
+  _getSchedules() {
+    const sensor = Object.values(this._hass?.states || {}).find(s =>
+      s.entity_id.startsWith("sensor.") && Array.isArray(s.attributes?.schedules)
+    );
+    return sensor?.attributes?.schedules || [];
+  }
+
+  _renderQuickStatus() {
+    if (!this.shadowRoot || !this._hass) return;
+    const status = this.shadowRoot.getElementById("quickStatus");
+    const entityId = this.shadowRoot.getElementById("entity")?.value;
+    if (!status || !entityId) {
+      if (status) status.textContent = "";
+      return;
+    }
+    const now = Date.now();
+    const active = this._getSchedules()
+      .filter(s => s.entity_id === entityId && new Date(s.start).getTime() <= now && now < new Date(s.end).getTime())
+      .sort((a,b) => new Date(b.end) - new Date(a.end));
+    status.textContent = active.length ? `${this._t("activeUntil")} ${this._formatTime(new Date(active[0].end))}` : "";
+  }
+
+  async _addTime(minutes) {
+    const error = this.shadowRoot.getElementById("error");
+    const entityId = this.shadowRoot.getElementById("entity").value;
+    error.textContent = "";
+    if (!entityId) {
+      error.textContent = this._t("selectFirst");
+      return;
+    }
+    const buttons = [this.shadowRoot.getElementById("quick30"), this.shadowRoot.getElementById("quick60")];
+    buttons.forEach(b => b.disabled = true);
+    try {
+      await this._hass.callService("one_shot_scheduler", "add_time", { entity_id: entityId, minutes });
+    } catch (e) {
+      console.error(e);
+      error.textContent = `${this._t("quickFailed")}: ${e?.message || e}`;
+    } finally {
+      buttons.forEach(b => b.disabled = false);
+    }
   }
 
   async _createSchedule() {
@@ -200,8 +246,7 @@ class OneShotSchedulerCard extends HTMLElement {
     const entityId = this.shadowRoot.getElementById("entity").value;
     const startMode = this.shadowRoot.querySelector('input[name="startMode"]:checked').value;
     const endMode = this.shadowRoot.querySelector('input[name="endMode"]:checked').value;
-
-    let start = startMode === "now" ? new Date() : new Date(this.shadowRoot.getElementById("startAt").value);
+    const start = startMode === "now" ? new Date() : new Date(this.shadowRoot.getElementById("startAt").value);
     let end;
     if (endMode === "duration") {
       const minutes = Number(this.shadowRoot.getElementById("duration").value);
@@ -209,18 +254,14 @@ class OneShotSchedulerCard extends HTMLElement {
     } else {
       end = new Date(this.shadowRoot.getElementById("endAt").value);
     }
-
     if (!entityId || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) {
       error.textContent = this._t("invalid");
       return;
     }
-
     button.disabled = true;
     try {
       await this._hass.callService("one_shot_scheduler", "create", {
-        entity_id: entityId,
-        start: start.toISOString(),
-        end: end.toISOString()
+        entity_id: entityId, start: start.toISOString(), end: end.toISOString()
       });
     } catch (e) {
       console.error(e);
@@ -230,19 +271,11 @@ class OneShotSchedulerCard extends HTMLElement {
     }
   }
 
-  _getScheduleSensor() {
-    return Object.values(this._hass?.states || {}).find(s =>
-      s.entity_id.startsWith("sensor.") && Array.isArray(s.attributes?.schedules) &&
-      (s.attributes?.friendly_name?.includes("Schedules") || s.attributes?.friendly_name?.includes("תזמונים") || s.attributes?.schedules !== undefined)
-    );
-  }
-
   _renderSchedules() {
     if (!this.shadowRoot || !this._hass) return;
     const container = this.shadowRoot.getElementById("schedules");
     if (!container) return;
-    const sensor = this._getScheduleSensor();
-    const schedules = sensor?.attributes?.schedules || [];
+    const schedules = this._getSchedules();
     if (!schedules.length) {
       container.innerHTML = `<div class="empty">${this._t("none")}</div>`;
       return;
@@ -251,8 +284,7 @@ class OneShotSchedulerCard extends HTMLElement {
     container.innerHTML = schedules.map(item => {
       const entity = this._hass.states[item.entity_id];
       const name = this._escape(entity?.attributes?.friendly_name || item.entity_id);
-      const start = new Date(item.start);
-      const end = new Date(item.end);
+      const start = new Date(item.start), end = new Date(item.end);
       const active = start.getTime() <= now && now < end.getTime();
       return `<div class="schedule">
         <div>
@@ -268,7 +300,13 @@ class OneShotSchedulerCard extends HTMLElement {
 
   _formatDate(date) {
     return new Intl.DateTimeFormat(this._hass.language || undefined, {
-      weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit"
+      weekday:"short", day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit"
+    }).format(date);
+  }
+
+  _formatTime(date) {
+    return new Intl.DateTimeFormat(this._hass.language || undefined, {
+      hour:"2-digit", minute:"2-digit"
     }).format(date);
   }
 
@@ -276,7 +314,7 @@ class OneShotSchedulerCard extends HTMLElement {
     const error = this.shadowRoot.getElementById("error");
     error.textContent = "";
     try {
-      await this._hass.callService("one_shot_scheduler", "cancel", { schedule_id: id });
+      await this._hass.callService("one_shot_scheduler", "cancel", { schedule_id:id });
     } catch (e) {
       console.error(e);
       error.textContent = `${this._t("cancelFailed")}: ${e?.message || e}`;
@@ -284,20 +322,81 @@ class OneShotSchedulerCard extends HTMLElement {
   }
 
   _escape(value) {
-    return String(value ?? "")
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll('"', "&quot;")
-      .replaceAll("'", "&#039;");
+    return String(value ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;")
+      .replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");
   }
 }
 
-customElements.define("one-shot-scheduler-card", OneShotSchedulerCard);
+if (!customElements.get("one-shot-scheduler-card")) {
+  customElements.define("one-shot-scheduler-card", OneShotSchedulerCard);
+}
+
+class OneShotSchedulerShortcut extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({ mode:"open" });
+    this._config = {};
+    this._hass = null;
+  }
+
+  setConfig(config) {
+    if (!config?.entity) throw new Error("entity is required");
+    this._config = config;
+    this._render();
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+    this._render();
+  }
+
+  getCardSize() { return 1; }
+
+  _render() {
+    if (!this.shadowRoot || !this._config.entity) return;
+    const state = this._hass?.states?.[this._config.entity];
+    const name = this._config.name || state?.attributes?.friendly_name || this._config.entity;
+    const icon = this._config.icon || "mdi:timer-outline";
+    this.shadowRoot.innerHTML = `
+      <style>
+        ha-card { cursor:pointer; padding:14px 16px; display:flex; align-items:center; gap:12px; }
+        ha-icon { color:var(--primary-color); }
+        .name { font-weight:600; }
+        .sub { font-size:.85rem; color:var(--secondary-text-color); margin-top:2px; }
+      </style>
+      <ha-card tabindex="0">
+        <ha-icon icon="${icon}"></ha-icon>
+        <div><div class="name">${name}</div><div class="sub">${this._config.entity}</div></div>
+      </ha-card>`;
+    const card = this.shadowRoot.querySelector("ha-card");
+    const open = () => {
+      const url = `/one-shot-scheduler?entity=${encodeURIComponent(this._config.entity)}`;
+      history.pushState(null, "", url);
+      window.dispatchEvent(new Event("location-changed"));
+    };
+    card.addEventListener("click", open);
+    card.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") open(); });
+  }
+}
+
+if (!customElements.get("one-shot-scheduler-shortcut")) {
+  customElements.define("one-shot-scheduler-shortcut", OneShotSchedulerShortcut);
+}
+
 window.customCards = window.customCards || [];
-window.customCards.push({
-  type: "one-shot-scheduler-card",
-  name: "One Shot Scheduler",
-  description: "Create one-time on/off schedules for switches",
-  preview: false
-});
+if (!window.customCards.some(c => c.type === "one-shot-scheduler-card")) {
+  window.customCards.push({
+    type:"one-shot-scheduler-card",
+    name:"One Shot Scheduler",
+    description:"Create one-time on/off schedules for switches",
+    preview:false
+  });
+}
+if (!window.customCards.some(c => c.type === "one-shot-scheduler-shortcut")) {
+  window.customCards.push({
+    type:"one-shot-scheduler-shortcut",
+    name:"One Shot Scheduler Shortcut",
+    description:"Open One Shot Scheduler with a specific switch preselected",
+    preview:false
+  });
+}
