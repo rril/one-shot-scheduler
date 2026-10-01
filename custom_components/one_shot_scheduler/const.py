@@ -4,7 +4,7 @@ DOMAIN = "one_shot_scheduler"
 STORAGE_KEY = f"{DOMAIN}.schedules"
 STORAGE_VERSION = 1
 CONF_OVERVIEW_SHORTCUTS = "overview_shortcuts"
-PLATFORMS = ["sensor", "button"]
+PLATFORMS = ["sensor"]
 
 SERVICE_CREATE = "create"
 SERVICE_ADD_TIME = "add_time"
