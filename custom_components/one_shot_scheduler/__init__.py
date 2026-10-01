@@ -49,6 +49,7 @@ ADD_TIME_SCHEMA = vol.Schema(
     }
 )
 CANCEL_SCHEMA = vol.Schema({vol.Required("schedule_id"): cv.string})
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 
 def _parse_datetime(value: str, field: str) -> datetime:
@@ -137,7 +138,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Remove legacy +30/+60 button entities from versions before 0.5.0.
     registry = er.async_get(hass)
     for registry_entry in er.async_entries_for_config_entry(registry, entry.entry_id):
-        if registry_entry.domain == "button":
+        unique_id = registry_entry.unique_id or ""
+        if (
+            registry_entry.domain == "button"
+            or unique_id.endswith("_quick_30")
+            or unique_id.endswith("_quick_60")
+        ):
             registry.async_remove(registry_entry.entity_id)
 
     manager = OneShotScheduleManager(hass)
