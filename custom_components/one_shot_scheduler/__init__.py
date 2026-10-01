@@ -113,9 +113,11 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
 async def _register_sidebar_panel(hass: HomeAssistant) -> None:
     """Register the scheduler as a Home Assistant sidebar panel."""
-    language = (hass.config.language or "").lower()
-    sidebar_title = "תזמון חד־פעמי" if language.startswith("he") else "One Shot Scheduler"
-
+    # Sidebar panel metadata is global for the Home Assistant instance, not
+    # per-user, so keep the sidebar title language-neutral/English. The panel
+    # contents themselves use hass.language and therefore follow each user's
+    # frontend language.
+    sidebar_title = "One Shot Scheduler"
 
     await panel_custom.async_register_panel(
         hass=hass,
