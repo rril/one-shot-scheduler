@@ -23,6 +23,7 @@ from .const import (
     PANEL_PATH,
     PANEL_URL,
     PLATFORMS,
+    SERVICE_ADD_TIME,
     SERVICE_CANCEL,
     SERVICE_CLEAR,
     SERVICE_CREATE,
@@ -38,6 +39,12 @@ CREATE_SCHEMA = vol.Schema(
         vol.Required("entity_id"): cv.entity_id,
         vol.Required("start"): cv.string,
         vol.Required("end"): cv.string,
+    }
+)
+ADD_TIME_SCHEMA = vol.Schema(
+    {
+        vol.Required("entity_id"): cv.entity_id,
+        vol.Required("minutes"): vol.All(vol.Coerce(int), vol.Range(min=1, max=10080)),
     }
 )
 CANCEL_SCHEMA = vol.Schema({vol.Required("schedule_id"): cv.string})
@@ -77,6 +84,10 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         end = _parse_datetime(call.data["end"], "end")
         await manager.async_create(call.data["entity_id"], start, end)
 
+    async def handle_add_time(call: ServiceCall) -> None:
+        manager = _get_manager(hass)
+        await manager.async_add_time(call.data["entity_id"], call.data["minutes"])
+
     async def handle_cancel(call: ServiceCall) -> None:
         manager = _get_manager(hass)
         removed = await manager.async_cancel(call.data["schedule_id"])
@@ -89,6 +100,9 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
     hass.services.async_register(
         DOMAIN, SERVICE_CREATE, handle_create, schema=CREATE_SCHEMA
+    )
+    hass.services.async_register(
+        DOMAIN, SERVICE_ADD_TIME, handle_add_time, schema=ADD_TIME_SCHEMA
     )
     hass.services.async_register(
         DOMAIN, SERVICE_CANCEL, handle_cancel, schema=CANCEL_SCHEMA
