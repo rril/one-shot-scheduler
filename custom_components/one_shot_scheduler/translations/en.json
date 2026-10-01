@@ -11,10 +11,32 @@
       "already_configured": "One Shot Scheduler is already configured."
     }
   },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Overview shortcuts",
+        "description": "Choose switches for which quick-timer buttons should be created. These button entities can be added to Favorites on the automatic Overview dashboard.",
+        "data": {
+          "overview_shortcuts": "Switches for Overview Favorites"
+        },
+        "data_description": {
+          "overview_shortcuts": "Each selected switch gets a +30 minute and +1 hour button. Repeated presses extend the active timer."
+        }
+      }
+    }
+  },
   "entity": {
     "sensor": {
       "schedules": {
         "name": "Schedules"
+      }
+    },
+    "button": {
+      "quick_30": {
+        "name": "{name} · +30 min"
+      },
+      "quick_60": {
+        "name": "{name} · +1 hour"
       }
     }
   }
