@@ -6,6 +6,7 @@ STORAGE_VERSION = 1
 PLATFORMS = ["sensor"]
 
 SERVICE_CREATE = "create"
+SERVICE_ADD_TIME = "add_time"
 SERVICE_CANCEL = "cancel"
 SERVICE_CLEAR = "clear"
 
