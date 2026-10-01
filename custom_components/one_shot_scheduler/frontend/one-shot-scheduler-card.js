@@ -1,40 +1,38 @@
-// Convert Favorite clicks on scheduler shortcut entities into navigation.
-if (!window.__oneShotSchedulerShortcutHookInstalledV2) {
-  window.__oneShotSchedulerShortcutHookInstalledV2 = true;
+// Subscribe to backend shortcut button presses. This avoids relying on
+// Home Assistant's More Info event path, which differs across dashboard UIs.
+if (!window.__oneShotSchedulerShortcutSubscriptionV1) {
+  window.__oneShotSchedulerShortcutSubscriptionV1 = true;
 
-  const handleSchedulerShortcut = (event) => {
-    if (event.__oneShotSchedulerHandled) return;
-
-    const entityId =
-      event?.detail?.entityId ||
-      event?.detail?.entity_id ||
-      event?.detail?.entity ||
-      null;
-    if (!entityId) return;
-
+  const installShortcutSubscription = async () => {
     const root = document.querySelector("home-assistant");
     const hass = root?.hass;
-    const state = hass?.states?.[entityId];
-    if (state?.attributes?.one_shot_scheduler_shortcut !== "true") return;
 
-    const sourceEntityId = state.attributes.source_entity_id;
-    if (!sourceEntityId) return;
+    if (!hass?.connection || !hass?.user?.id) {
+      window.setTimeout(installShortcutSubscription, 500);
+      return;
+    }
 
-    event.__oneShotSchedulerHandled = true;
-    event.preventDefault?.();
-    event.stopImmediatePropagation?.();
-    event.stopPropagation?.();
+    try {
+      await hass.connection.subscribeEvents((event) => {
+        // Button service calls carry the initiating user's context. Only
+        // navigate the browser belonging to that user.
+        const eventUserId = event?.context?.user_id;
+        if (eventUserId && eventUserId !== hass.user.id) return;
 
-    const url = `/one-shot-scheduler?entity=${encodeURIComponent(sourceEntityId)}`;
-    history.pushState(null, "", url);
-    window.dispatchEvent(new Event("location-changed"));
+        const sourceEntityId = event?.data?.source_entity_id;
+        if (!sourceEntityId) return;
+
+        const url = `/one-shot-scheduler?entity=${encodeURIComponent(sourceEntityId)}`;
+        history.pushState(null, "", url);
+        window.dispatchEvent(new Event("location-changed"));
+      }, "one_shot_scheduler_shortcut_requested");
+    } catch (err) {
+      console.warn("One Shot Scheduler: shortcut subscription failed", err);
+      window.setTimeout(installShortcutSubscription, 1500);
+    }
   };
 
-  // Home Assistant's dialog events can originate inside nested shadow roots.
-  // Capture at both document and window so the shortcut wins before the
-  // default More Info handler regardless of where the Favorite is rendered.
-  document.addEventListener("hass-more-info", handleSchedulerShortcut, true);
-  window.addEventListener("hass-more-info", handleSchedulerShortcut, true);
+  installShortcutSubscription();
 }
 
 class OneShotSchedulerCard extends HTMLElement {
