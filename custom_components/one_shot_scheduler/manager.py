@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
 from typing import Any, Callable
 from uuid import uuid4
@@ -133,6 +133,45 @@ class OneShotScheduleManager:
         if start_utc <= now < end_utc:
             await self._async_apply_entity_state(entity_id, now)
 
+        self._notify_updated()
+        return schedule
+
+    async def async_add_time(self, entity_id: str, minutes: int) -> OneShotSchedule:
+        """Turn a switch on now and add time to its current active window."""
+        if minutes < 1:
+            raise HomeAssistantError("Minutes must be positive")
+
+        state = self.hass.states.get(entity_id)
+        if state is None:
+            raise HomeAssistantError(f"Entity {entity_id} does not exist")
+        if entity_id.split(".", 1)[0] != "switch":
+            raise HomeAssistantError("One Shot Scheduler currently accepts switch entities only")
+
+        now = dt_util.utcnow()
+        active = [
+            schedule
+            for schedule in self._schedules.values()
+            if schedule.entity_id == entity_id
+            and schedule.start_dt <= now < schedule.end_dt
+        ]
+        base_end = max((schedule.end_dt for schedule in active), default=now)
+        new_end = base_end + timedelta(minutes=minutes)
+
+        # Collapse active schedules for this entity into one extended window.
+        for schedule in active:
+            self._remove_schedule(schedule.id)
+
+        schedule = OneShotSchedule(
+            id=uuid4().hex[:12],
+            entity_id=entity_id,
+            start=now.isoformat(),
+            end=new_end.isoformat(),
+            created_at=now.isoformat(),
+        )
+        self._schedules[schedule.id] = schedule
+        self._arm_schedule(schedule)
+        await self._async_save()
+        await self._async_apply_entity_state(entity_id, now)
         self._notify_updated()
         return schedule
 
