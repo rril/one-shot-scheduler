@@ -50,8 +50,8 @@ class OneShotQuickTimerButton(ButtonEntity):
             if source is not None
             else source_entity_id
         )
-        suffix = "30 min" if minutes == 30 else "1 hour"
-        self._attr_name = f"{source_name} · +{suffix}"
+        self._attr_translation_key = "quick_30" if minutes == 30 else "quick_60"
+        self._attr_translation_placeholders = {"name": source_name}
         self._attr_unique_id = (
             f"{DOMAIN}_{source_entity_id.replace('.', '_')}_quick_{minutes}"
         )
