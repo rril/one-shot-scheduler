@@ -102,8 +102,6 @@ async def _register_sidebar_panel(hass: HomeAssistant) -> None:
     language = (hass.config.language or "").lower()
     sidebar_title = "תזמון חד־פעמי" if language.startswith("he") else "One Shot Scheduler"
 
-    if frontend.async_panel_exists(hass, PANEL_PATH):
-        frontend.async_remove_panel(hass, PANEL_PATH, warn_if_unknown=False)
 
     await panel_custom.async_register_panel(
         hass=hass,
