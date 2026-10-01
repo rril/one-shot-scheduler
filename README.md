@@ -20,7 +20,7 @@ Choose a switch, choose when it starts, then choose an end time **or a duration*
 - Hebrew and English UI.
 - Dedicated full-page Home Assistant sidebar panel (added automatically after setup).
 - Entity-specific shortcut card opens the sidebar scheduler with that switch already selected.
-- Automatic Overview support: choose switches in the integration options to create Favorite-compatible +30 minute and +1 hour button entities.
+- Automatic Overview support: choose switches in the integration options to create one Favorite-compatible shortcut entity per switch. Tapping it opens the scheduler with that switch preselected.
 
 ## Installation with HACS
 
@@ -110,17 +110,12 @@ MIT
 
 ## Automatic Overview / Favorites
 
-Home Assistant's built-in automatic Overview does not allow integrations to inject arbitrary custom cards or navigation actions. It does support entity Favorites.
-
-One Shot Scheduler therefore provides native `button` entities for quick timers:
+Home Assistant's automatic Overview only accepts entity Favorites, not arbitrary custom cards. One Shot Scheduler works around that cleanly by creating a dedicated shortcut entity for each switch you choose.
 
 1. Go to **Settings → Devices & services → One Shot Scheduler → Configure**.
-2. Select the switches you want available on the automatic Overview.
-3. The integration reloads automatically and creates two button entities for each selected switch:
-   - **+30 minutes**
-   - **+1 hour**
-4. Edit the automatic Overview's **Favorites** and add those button entities.
+2. Select the switches you want shortcuts for.
+3. The integration reloads automatically and creates one shortcut sensor per selected switch, with a friendly translated name such as **Boiler timer** / **טיימר דוד**.
+4. Edit the automatic Overview's **Favorites** and add those shortcut entities.
+5. Tapping a shortcut Favorite opens **One Shot Scheduler** with that switch already selected, ready for choosing start/end time or using the quick +30 minute / +1 hour buttons.
 
-Pressing a Favorite button turns the switch on immediately. Further presses extend the same active timer, so pressing **+1 hour** twice gives a two-hour total window.
-
-The full time/date picker remains available in the One Shot Scheduler sidebar panel because the automatic Overview Favorites UI does not support custom navigation actions.
+Versions 0.4.x briefly created two quick-timer button entities per switch. Version 0.5.0 removes those legacy entities automatically on startup.
