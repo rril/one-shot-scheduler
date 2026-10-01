@@ -2,12 +2,14 @@
 
 A Home Assistant custom integration + Lovelace card for creating **one-time switch schedules** directly from a dashboard.
 
-Choose a switch, choose when it starts, then choose an end time **or a duration**. The schedule runs once and removes itself when finished.
+Choose a switch and configure independent one-time actions at the start and/or end. Each boundary can **turn on**, **turn off**, or **do nothing**.
 
 ## Features
 
 - Choose any `switch.*` entity from the dashboard card.
 - Start **now** or at a chosen date/time.
+- Independent start/end actions: **Turn on**, **Turn off**, or **Do nothing**.
+- Start-only and end-only schedules, such as “turn on at 18:00” or “turn off at 23:00”.
 - Quick buttons **+30 minutes** and **+1 hour** start immediately; repeated presses extend the same active window cumulatively.
 - Stop **after N minutes** or at a chosen date/time.
 - Multiple schedules can run at the same time.
@@ -81,7 +83,9 @@ With a switch selected, **+30 minutes** or **+1 hour** turns it on immediately. 
 action: one_shot_scheduler.create
 data:
   entity_id: switch.boiler
+  start_action: "on"
   start: "2026-10-01T18:30:00+03:00"
+  end_action: "off"
   end: "2026-10-01T19:15:00+03:00"
 ```
 
@@ -114,7 +118,7 @@ Home Assistant's automatic Overview only accepts entity Favorites, not arbitrary
 
 1. Go to **Settings → Devices & services → One Shot Scheduler → Configure**.
 2. Select the switches you want shortcuts for.
-3. The integration reloads automatically and creates one shortcut sensor per selected switch, with a friendly translated name such as **Boiler timer** / **טיימר דוד**.
+3. The integration reloads automatically and creates one shortcut button per selected switch, with a friendly name such as **Boiler timer**.
 4. Edit the automatic Overview's **Favorites** and add those shortcut entities.
 5. Tapping a shortcut Favorite opens **One Shot Scheduler** with that switch already selected, ready for choosing start/end time or using the quick +30 minute / +1 hour buttons.
 
