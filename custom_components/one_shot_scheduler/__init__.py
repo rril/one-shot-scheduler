@@ -39,8 +39,10 @@ PANEL_FILE = FRONTEND_DIR / "one-shot-scheduler-panel.js"
 CREATE_SCHEMA = vol.Schema(
     {
         vol.Required("entity_id"): cv.entity_id,
-        vol.Required("start"): cv.string,
-        vol.Required("end"): cv.string,
+        vol.Optional("start"): cv.string,
+        vol.Optional("end"): cv.string,
+        vol.Optional("start_action", default="on"): vol.In(["on", "off", "none"]),
+        vol.Optional("end_action", default="off"): vol.In(["on", "off", "none"]),
     }
 )
 ADD_TIME_SCHEMA = vol.Schema(
@@ -83,9 +85,23 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
     async def handle_create(call: ServiceCall) -> None:
         manager = _get_manager(hass)
-        start = _parse_datetime(call.data["start"], "start")
-        end = _parse_datetime(call.data["end"], "end")
-        await manager.async_create(call.data["entity_id"], start, end)
+        start = (
+            _parse_datetime(call.data["start"], "start")
+            if call.data.get("start")
+            else None
+        )
+        end = (
+            _parse_datetime(call.data["end"], "end")
+            if call.data.get("end")
+            else None
+        )
+        await manager.async_create(
+            call.data["entity_id"],
+            start,
+            end,
+            call.data["start_action"],
+            call.data["end_action"],
+        )
 
     async def handle_add_time(call: ServiceCall) -> None:
         manager = _get_manager(hass)
