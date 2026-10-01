@@ -1,0 +1,21 @@
+{
+  "title": "תזמון חד־פעמי",
+  "config": {
+    "step": {
+      "user": {
+        "title": "תזמון חד־פעמי",
+        "description": "הוספת מנהל התזמונים החד־פעמיים ל-Home Assistant. אין צורך בהגדרות נוספות."
+      }
+    },
+    "abort": {
+      "already_configured": "מנהל התזמונים החד־פעמיים כבר מוגדר."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "schedules": {
+        "name": "תזמונים"
+      }
+    }
+  }
+}
