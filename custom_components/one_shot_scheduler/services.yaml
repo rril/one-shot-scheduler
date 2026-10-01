@@ -1,0 +1,36 @@
+create:
+  name: Create one-shot schedule
+  description: Turn a switch on at the start time and off at the end time, once.
+  fields:
+    entity_id:
+      name: Switch
+      required: true
+      selector:
+        entity:
+          domain: switch
+    start:
+      name: Start
+      required: true
+      example: "2026-10-01T18:30:00+03:00"
+      selector:
+        text:
+    end:
+      name: End
+      required: true
+      example: "2026-10-01T19:15:00+03:00"
+      selector:
+        text:
+
+cancel:
+  name: Cancel schedule
+  description: Cancel one pending or active one-shot schedule.
+  fields:
+    schedule_id:
+      name: Schedule ID
+      required: true
+      selector:
+        text:
+
+clear:
+  name: Clear all schedules
+  description: Cancel all one-shot schedules. Switches with an active schedule are turned off unless another active schedule remains.
