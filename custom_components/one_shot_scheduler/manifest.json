@@ -1,17 +1,17 @@
 {
   "domain": "one_shot_scheduler",
   "name": "One Shot Scheduler",
-  "version": "0.7.0",
-  "config_flow": true,
-  "documentation": "https://github.com/rril/one-shot-scheduler",
-  "issue_tracker": "https://github.com/rril/one-shot-scheduler/issues",
   "codeowners": [
     "@rril"
   ],
+  "config_flow": true,
   "dependencies": [
     "frontend",
     "panel_custom",
     "http"
   ],
-  "iot_class": "local_push"
+  "documentation": "https://github.com/rril/one-shot-scheduler",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/rril/one-shot-scheduler/issues",
+  "version": "0.7.0"
 }
