@@ -18,4 +18,4 @@ PANEL_URL = "/one_shot_scheduler/one-shot-scheduler-panel.js"
 PANEL_PATH = "one-shot-scheduler"
 PANEL_ELEMENT = "one-shot-scheduler-panel"
 
-FRONTEND_VERSION = "0.6.0"
+FRONTEND_VERSION = "0.7.0"
