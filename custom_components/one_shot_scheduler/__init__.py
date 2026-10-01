@@ -13,6 +13,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.util import dt as dt_util
 
@@ -133,6 +134,12 @@ async def _register_sidebar_panel(hass: HomeAssistant) -> None:
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up from a config entry."""
+    # Remove legacy +30/+60 button entities from versions before 0.5.0.
+    registry = er.async_get(hass)
+    for registry_entry in er.async_entries_for_config_entry(registry, entry.entry_id):
+        if registry_entry.domain == "button":
+            registry.async_remove(registry_entry.entity_id)
+
     manager = OneShotScheduleManager(hass)
     await manager.async_initialize()
     hass.data[DOMAIN][entry.entry_id] = manager
