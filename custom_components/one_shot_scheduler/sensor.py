@@ -79,7 +79,6 @@ class OneShotSchedulerShortcutSensor(SensorEntity):
     """Favorite-compatible shortcut that opens the scheduler for one switch."""
 
     _attr_icon = "mdi:timer-outline"
-    _attr_translation_key = "shortcut"
     _attr_should_poll = False
 
     def __init__(self, hass: HomeAssistant, source_entity_id: str) -> None:
@@ -90,7 +89,7 @@ class OneShotSchedulerShortcutSensor(SensorEntity):
             if source is not None
             else source_entity_id
         )
-        self._attr_translation_placeholders = {"name": source_name}
+        self._attr_name = f"{source_name} timer"
         self._attr_unique_id = (
             f"{DOMAIN}_{source_entity_id.replace('.', '_')}_shortcut"
         )
