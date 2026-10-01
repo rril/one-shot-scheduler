@@ -9,7 +9,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-from .const import DOMAIN
+from .const import CONF_OVERVIEW_SHORTCUTS, DOMAIN
 from .manager import OneShotScheduleManager
 
 
@@ -18,9 +18,14 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    """Set up the schedule summary sensor."""
+    """Set up scheduler sensors and Overview shortcut entities."""
     manager: OneShotScheduleManager = hass.data[DOMAIN][entry.entry_id]
-    async_add_entities([OneShotSchedulerSensor(manager)])
+    entities: list[SensorEntity] = [OneShotSchedulerSensor(manager)]
+
+    for entity_id in entry.options.get(CONF_OVERVIEW_SHORTCUTS, []):
+        entities.append(OneShotSchedulerShortcutSensor(hass, entity_id))
+
+    async_add_entities(entities)
 
 
 class OneShotSchedulerSensor(SensorEntity):
@@ -68,3 +73,35 @@ class OneShotSchedulerSensor(SensorEntity):
     @callback
     def _handle_update(self) -> None:
         self.async_write_ha_state()
+
+
+class OneShotSchedulerShortcutSensor(SensorEntity):
+    """Favorite-compatible shortcut that opens the scheduler for one switch."""
+
+    _attr_icon = "mdi:timer-outline"
+    _attr_translation_key = "shortcut"
+    _attr_should_poll = False
+
+    def __init__(self, hass: HomeAssistant, source_entity_id: str) -> None:
+        self._source_entity_id = source_entity_id
+        source = hass.states.get(source_entity_id)
+        source_name = (
+            source.attributes.get("friendly_name", source_entity_id)
+            if source is not None
+            else source_entity_id
+        )
+        self._attr_translation_placeholders = {"name": source_name}
+        self._attr_unique_id = (
+            f"{DOMAIN}_{source_entity_id.replace('.', '_')}_shortcut"
+        )
+
+    @property
+    def native_value(self) -> str:
+        return "ready"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, str]:
+        return {
+            "one_shot_scheduler_shortcut": "true",
+            "source_entity_id": self._source_entity_id,
+        }
