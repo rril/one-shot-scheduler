@@ -73,6 +73,7 @@ class OneShotSchedulerCard extends HTMLElement {
       quick: "הפעלה מהירה", quickHint: "כל לחיצה מפעילה מיד ומוסיפה לזמן שכבר נקבע",
       add30: "+30 דקות", add60: "+שעה", activeUntil: "פעיל עד",
       start: "התחלה", now: "עכשיו", at: "בשעה", end: "סיום",
+      action: "פעולה", turnOn: "הדלק", turnOff: "כבה", doNothing: "אל תעשה כלום",
       duration: "אחרי", minutes: "דקות", create: "קבע הפעלה",
       pending: "תזמונים פעילים", none: "אין תזמונים פעילים", cancel: "בטל",
       active: "פעיל עכשיו", scheduled: "מתוכנן",
@@ -85,6 +86,7 @@ class OneShotSchedulerCard extends HTMLElement {
       quick: "Quick start", quickHint: "Each press starts immediately and adds to the already scheduled time",
       add30: "+30 minutes", add60: "+1 hour", activeUntil: "Active until",
       start: "Start", now: "Now", at: "At time", end: "End",
+      action: "Action", turnOn: "Turn on", turnOff: "Turn off", doNothing: "Do nothing",
       duration: "After", minutes: "minutes", create: "Schedule",
       pending: "Active schedules", none: "No active schedules", cancel: "Cancel",
       active: "Active now", scheduled: "Scheduled",
@@ -158,22 +160,36 @@ class OneShotSchedulerCard extends HTMLElement {
         </div>
 
         <div class="field">
-          <div class="label">${this._t("start")}</div>
+          <div class="label">${this._t("start")} · ${this._t("action")}</div>
+          <select id="startAction">
+            <option value="on" selected>${this._t("turnOn")}</option>
+            <option value="off">${this._t("turnOff")}</option>
+            <option value="none">${this._t("doNothing")}</option>
+          </select>
+          <div id="startTiming" style="margin-top:10px">
           <div class="modes">
             <label class="mode"><input type="radio" name="startMode" value="now" checked> ${this._t("now")}</label>
             <label class="mode"><input type="radio" name="startMode" value="at"> ${this._t("at")}</label>
           </div>
           <div id="startAtWrap" style="display:none;margin-top:8px"><input id="startAt" type="datetime-local"></div>
+          </div>
         </div>
 
         <div class="field">
-          <div class="label">${this._t("end")}</div>
+          <div class="label">${this._t("end")} · ${this._t("action")}</div>
+          <select id="endAction">
+            <option value="off" selected>${this._t("turnOff")}</option>
+            <option value="on">${this._t("turnOn")}</option>
+            <option value="none">${this._t("doNothing")}</option>
+          </select>
+          <div id="endTiming" style="margin-top:10px">
           <div class="modes">
             <label class="mode"><input type="radio" name="endMode" value="duration" checked> ${this._t("duration")}</label>
             <label class="mode"><input type="radio" name="endMode" value="at"> ${this._t("at")}</label>
           </div>
           <div id="durationWrap" class="duration"><input id="duration" type="number" min="1" step="1" value="30"><span>${this._t("minutes")}</span></div>
           <div id="endAtWrap" style="display:none;margin-top:8px"><input id="endAt" type="datetime-local"></div>
+          </div>
         </div>
 
         <button id="create" class="primary">${this._t("create")}</button>
@@ -186,6 +202,8 @@ class OneShotSchedulerCard extends HTMLElement {
 
     this.shadowRoot.querySelectorAll('input[name="startMode"]').forEach(el => el.addEventListener("change", () => this._syncModeVisibility()));
     this.shadowRoot.querySelectorAll('input[name="endMode"]').forEach(el => el.addEventListener("change", () => this._syncModeVisibility()));
+    this.shadowRoot.getElementById("startAction").addEventListener("change", () => this._syncModeVisibility());
+    this.shadowRoot.getElementById("endAction").addEventListener("change", () => this._syncModeVisibility());
     this.shadowRoot.getElementById("entity").addEventListener("change", () => this._renderQuickStatus());
     this.shadowRoot.getElementById("create").addEventListener("click", () => this._createSchedule());
     this.shadowRoot.getElementById("quick30").addEventListener("click", () => this._addTime(30));
@@ -210,9 +228,13 @@ class OneShotSchedulerCard extends HTMLElement {
   _syncModeVisibility() {
     const startMode = this.shadowRoot.querySelector('input[name="startMode"]:checked').value;
     const endMode = this.shadowRoot.querySelector('input[name="endMode"]:checked').value;
-    this.shadowRoot.getElementById("startAtWrap").style.display = startMode === "at" ? "block" : "none";
-    this.shadowRoot.getElementById("durationWrap").style.display = endMode === "duration" ? "grid" : "none";
-    this.shadowRoot.getElementById("endAtWrap").style.display = endMode === "at" ? "block" : "none";
+    const startAction = this.shadowRoot.getElementById("startAction").value;
+    const endAction = this.shadowRoot.getElementById("endAction").value;
+    this.shadowRoot.getElementById("startTiming").style.display = startAction === "none" ? "none" : "block";
+    this.shadowRoot.getElementById("endTiming").style.display = endAction === "none" ? "none" : "block";
+    this.shadowRoot.getElementById("startAtWrap").style.display = startAction !== "none" && startMode === "at" ? "block" : "none";
+    this.shadowRoot.getElementById("durationWrap").style.display = endAction !== "none" && endMode === "duration" ? "grid" : "none";
+    this.shadowRoot.getElementById("endAtWrap").style.display = endAction !== "none" && endMode === "at" ? "block" : "none";
   }
 
   _updateEntityOptions(force=false) {
@@ -281,25 +303,43 @@ class OneShotSchedulerCard extends HTMLElement {
     const button = this.shadowRoot.getElementById("create");
     error.textContent = "";
     const entityId = this.shadowRoot.getElementById("entity").value;
+    const startAction = this.shadowRoot.getElementById("startAction").value;
+    const endAction = this.shadowRoot.getElementById("endAction").value;
     const startMode = this.shadowRoot.querySelector('input[name="startMode"]:checked').value;
     const endMode = this.shadowRoot.querySelector('input[name="endMode"]:checked').value;
-    const start = startMode === "now" ? new Date() : new Date(this.shadowRoot.getElementById("startAt").value);
-    let end;
-    if (endMode === "duration") {
-      const minutes = Number(this.shadowRoot.getElementById("duration").value);
-      end = new Date(start.getTime() + minutes * 60000);
-    } else {
-      end = new Date(this.shadowRoot.getElementById("endAt").value);
+
+    let start = null;
+    if (startAction !== "none") {
+      start = startMode === "now" ? new Date() : new Date(this.shadowRoot.getElementById("startAt").value);
     }
-    if (!entityId || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) {
+
+    let end = null;
+    if (endAction !== "none") {
+      if (endMode === "duration") {
+        const minutes = Number(this.shadowRoot.getElementById("duration").value);
+        const base = start ?? new Date();
+        end = new Date(base.getTime() + minutes * 60000);
+      } else {
+        end = new Date(this.shadowRoot.getElementById("endAt").value);
+      }
+    }
+
+    const invalidStart = start && Number.isNaN(start.getTime());
+    const invalidEnd = end && Number.isNaN(end.getTime());
+    if (!entityId || (startAction === "none" && endAction === "none") || invalidStart || invalidEnd || (start && end && end <= start)) {
       error.textContent = this._t("invalid");
       return;
     }
     button.disabled = true;
     try {
-      await this._hass.callService("one_shot_scheduler", "create", {
-        entity_id: entityId, start: start.toISOString(), end: end.toISOString()
-      });
+      const data = {
+        entity_id: entityId,
+        start_action: startAction,
+        end_action: endAction
+      };
+      if (start) data.start = start.toISOString();
+      if (end) data.end = end.toISOString();
+      await this._hass.callService("one_shot_scheduler", "create", data);
     } catch (e) {
       console.error(e);
       error.textContent = `${this._t("failed")}: ${e?.message || e}`;
@@ -321,12 +361,17 @@ class OneShotSchedulerCard extends HTMLElement {
     container.innerHTML = schedules.map(item => {
       const entity = this._hass.states[item.entity_id];
       const name = this._escape(entity?.attributes?.friendly_name || item.entity_id);
-      const start = new Date(item.start), end = new Date(item.end);
-      const active = start.getTime() <= now && now < end.getTime();
+      const start = item.start ? new Date(item.start) : null;
+      const end = item.end ? new Date(item.end) : null;
+      const actionLabel = (action) => action === "on" ? this._t("turnOn") : action === "off" ? this._t("turnOff") : this._t("doNothing");
+      const parts = [];
+      if (start && item.start_action !== "none") parts.push(`${actionLabel(item.start_action)}: ${this._formatDate(start)}`);
+      if (end && item.end_action !== "none") parts.push(`${actionLabel(item.end_action)}: ${this._formatDate(end)}`);
+      const active = start && end && start.getTime() <= now && now < end.getTime();
       return `<div class="schedule">
         <div>
           <div class="name">${name}</div>
-          <div class="times">${this._escape(this._formatDate(start))} → ${this._escape(this._formatDate(end))}</div>
+          <div class="times">${this._escape(parts.join(" · "))}</div>
           <div class="status">${active ? this._t("active") : this._t("scheduled")}</div>
         </div>
         <button class="cancel" data-id="${this._escape(item.id)}">${this._t("cancel")}</button>
