@@ -19,6 +19,9 @@ from homeassistant.util import dt as dt_util
 from .const import (
     CARD_URL,
     DOMAIN,
+    PANEL_ELEMENT,
+    PANEL_PATH,
+    PANEL_URL,
     PLATFORMS,
     SERVICE_CANCEL,
     SERVICE_CLEAR,
@@ -26,7 +29,9 @@ from .const import (
 )
 from .manager import OneShotScheduleManager
 
-FRONTEND_FILE = Path(__file__).parent / "frontend" / "one-shot-scheduler-card.js"
+FRONTEND_DIR = Path(__file__).parent / "frontend"
+CARD_FILE = FRONTEND_DIR / "one-shot-scheduler-card.js"
+PANEL_FILE = FRONTEND_DIR / "one-shot-scheduler-panel.js"
 
 CREATE_SCHEMA = vol.Schema(
     {
@@ -55,11 +60,14 @@ def _get_manager(hass: HomeAssistant) -> OneShotScheduleManager:
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Set up services and the dashboard card."""
+    """Set up services and frontend assets."""
     hass.data.setdefault(DOMAIN, {})
 
     await hass.http.async_register_static_paths(
-        [StaticPathConfig(CARD_URL, str(FRONTEND_FILE), False)]
+        [
+            StaticPathConfig(CARD_URL, str(CARD_FILE), False),
+            StaticPathConfig(PANEL_URL, str(PANEL_FILE), False),
+        ]
     )
     frontend.add_extra_js_url(hass, CARD_URL)
 
@@ -89,11 +97,37 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     return True
 
 
+def _register_sidebar_panel(hass: HomeAssistant) -> None:
+    """Register the scheduler as a Home Assistant sidebar panel."""
+    language = (hass.config.language or "").lower()
+    sidebar_title = "תזמון חד־פעמי" if language.startswith("he") else "One Shot Scheduler"
+
+    frontend.async_register_built_in_panel(
+        hass,
+        component_name="custom",
+        frontend_url_path=PANEL_PATH,
+        sidebar_title=sidebar_title,
+        sidebar_icon="mdi:timer-cog-outline",
+        require_admin=False,
+        show_in_sidebar=True,
+        config={
+            "_panel_custom": {
+                "name": PANEL_ELEMENT,
+                "embed_iframe": False,
+                "trust_external": False,
+                "js_url": PANEL_URL,
+            }
+        },
+        update=True,
+    )
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up from a config entry."""
     manager = OneShotScheduleManager(hass)
     await manager.async_initialize()
     hass.data[DOMAIN][entry.entry_id] = manager
+    _register_sidebar_panel(hass)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
@@ -104,4 +138,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if unloaded:
         manager: OneShotScheduleManager = hass.data[DOMAIN].pop(entry.entry_id)
         await manager.async_shutdown()
+        if not hass.data[DOMAIN]:
+            frontend.async_remove_panel(hass, PANEL_PATH, warn_if_unknown=False)
     return unloaded
