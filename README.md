@@ -37,7 +37,7 @@ Choose a switch, choose when it starts, then choose an end time **or a duration*
 
 ## Sidebar panel
 
-After the integration is added under **Settings → Devices & services**, **One Shot Scheduler** appears automatically in the Home Assistant sidebar. On a Hebrew Home Assistant instance the sidebar title is **תזמון חד־פעמי**.
+After the integration is added under **Settings → Devices & services**, **One Shot Scheduler** appears automatically in the Home Assistant sidebar. The sidebar title is kept in English because Home Assistant panel metadata is instance-wide; the scheduler page itself follows the language of the currently logged-in user.
 
 The sidebar page uses the same scheduler UI and does not require a separate dashboard.
 
