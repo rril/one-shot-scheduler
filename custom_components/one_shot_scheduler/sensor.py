@@ -49,6 +49,8 @@ class OneShotSchedulerSensor(SensorEntity):
                     "entity_id": schedule.entity_id,
                     "start": schedule.start,
                     "end": schedule.end,
+                    "start_action": schedule.start_action,
+                    "end_action": schedule.end_action,
                     "created_at": schedule.created_at,
                 }
                 for schedule in self._manager.schedules
