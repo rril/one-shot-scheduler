@@ -15,12 +15,12 @@
     "step": {
       "init": {
         "title": "קיצורים ל-Overview",
-        "description": "בחר מפסקים שעבורם ייווצרו כפתורי טיימר מהיר. את ישויות הכפתור האלה אפשר להוסיף למועדפים ב-Overview האוטומטי.",
+        "description": "בחר מפסקים שעבורם תיווצר ישות קיצור שניתן להוסיף למועדפים ב-Overview האוטומטי.",
         "data": {
-          "overview_shortcuts": "מפסקים למועדפי Overview"
+          "overview_shortcuts": "מפסקים לקיצורי Overview"
         },
         "data_description": {
-          "overview_shortcuts": "לכל מפסק ייווצר כפתור +30 דקות וכפתור +שעה. לחיצות חוזרות מאריכות את הטיימר הפעיל."
+          "overview_shortcuts": "לכל מפסק תיווצר ישות קיצור אחת. לחיצה עליה במועדפים תפתח את One Shot Scheduler כשהמפסק כבר נבחר."
         }
       }
     }
