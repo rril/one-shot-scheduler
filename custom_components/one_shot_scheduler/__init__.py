@@ -141,9 +141,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     for registry_entry in er.async_entries_for_config_entry(registry, entry.entry_id):
         unique_id = registry_entry.unique_id or ""
         if (
-            registry_entry.domain == "button"
-            or unique_id.endswith("_quick_30")
+            unique_id.endswith("_quick_30")
             or unique_id.endswith("_quick_60")
+            or (
+                registry_entry.domain == "sensor"
+                and unique_id.endswith("_shortcut")
+            )
         ):
             registry.async_remove(registry_entry.entity_id)
 
