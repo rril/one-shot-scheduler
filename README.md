@@ -17,6 +17,7 @@ Choose a switch, choose when it starts, then choose an end time **or a duration*
   - if HA was offline when the end time passed, the stale schedule is removed and the switch is reconciled.
 - Cancel pending or active schedules from the card.
 - Hebrew and English UI.
+- Dedicated full-page Home Assistant sidebar panel (added automatically after setup).
 
 ## Installation with HACS
 
@@ -32,9 +33,15 @@ Choose a switch, choose when it starts, then choose an end time **or a duration*
 7. Go to **Settings → Devices & services → Add integration**.
 8. Search for **One Shot Scheduler** and add it.
 
+## Sidebar panel
+
+After the integration is added under **Settings → Devices & services**, **One Shot Scheduler** appears automatically in the Home Assistant sidebar. On a Hebrew Home Assistant instance the sidebar title is **תזמון חד־פעמי**.
+
+The sidebar page uses the same scheduler UI and does not require a separate dashboard.
+
 ## Dashboard card
 
-Add a manual card to a dashboard:
+The dashboard card is still available if you also want the scheduler inside an existing dashboard. Add a manual card:
 
 ```yaml
 type: custom:one-shot-scheduler-card
