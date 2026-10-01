@@ -29,14 +29,9 @@
     "sensor": {
       "schedules": {
         "name": "Schedules"
-      }
-    },
-    "button": {
-      "quick_30": {
-        "name": "{name} · +30 min"
       },
-      "quick_60": {
-        "name": "{name} · +1 hour"
+      "shortcut": {
+        "name": "{name} timer"
       }
     }
   }
