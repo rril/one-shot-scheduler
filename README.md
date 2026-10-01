@@ -8,6 +8,7 @@ Choose a switch, choose when it starts, then choose an end time **or a duration*
 
 - Choose any `switch.*` entity from the dashboard card.
 - Start **now** or at a chosen date/time.
+- Quick buttons **+30 minutes** and **+1 hour** start immediately; repeated presses extend the same active window cumulatively.
 - Stop **after N minutes** or at a chosen date/time.
 - Multiple schedules can run at the same time.
 - Overlapping schedules for the same switch are handled correctly: the switch stays on until the final overlapping schedule ends.
@@ -18,6 +19,7 @@ Choose a switch, choose when it starts, then choose an end time **or a duration*
 - Cancel pending or active schedules from the card.
 - Hebrew and English UI.
 - Dedicated full-page Home Assistant sidebar panel (added automatically after setup).
+- Entity-specific shortcut card opens the sidebar scheduler with that switch already selected.
 
 ## Installation with HACS
 
@@ -48,6 +50,27 @@ type: custom:one-shot-scheduler-card
 ```
 
 The card JavaScript is served and registered by the integration, so no separate Lovelace resource is required.
+
+### Shortcut for a specific switch
+
+Add a shortcut card anywhere in Lovelace:
+
+```yaml
+type: custom:one-shot-scheduler-shortcut
+entity: switch.boiler
+name: דוד - טיימר
+icon: mdi:water-boiler
+```
+
+Pressing it opens the One Shot Scheduler page with that entity already selected.
+
+You can also navigate directly to:
+
+`/one-shot-scheduler?entity=switch.boiler`
+
+### Quick timer buttons
+
+With a switch selected, **+30 minutes** or **+1 hour** turns it on immediately. Each additional press extends the current active end time. For example, pressing **+1 hour** twice results in a two-hour active window.
 
 ## Services / actions
 
