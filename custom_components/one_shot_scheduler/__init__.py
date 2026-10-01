@@ -7,7 +7,7 @@ from pathlib import Path
 
 import voluptuous as vol
 
-from homeassistant.components import frontend
+from homeassistant.components import frontend, panel_custom
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
@@ -97,37 +97,33 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     return True
 
 
-def _register_sidebar_panel(hass: HomeAssistant) -> None:
+async def _register_sidebar_panel(hass: HomeAssistant) -> None:
     """Register the scheduler as a Home Assistant sidebar panel."""
     language = (hass.config.language or "").lower()
     sidebar_title = "תזמון חד־פעמי" if language.startswith("he") else "One Shot Scheduler"
 
-    frontend.async_register_built_in_panel(
-        hass,
-        component_name="custom",
+    if frontend.async_panel_exists(hass, PANEL_PATH):
+        frontend.async_remove_panel(hass, PANEL_PATH, warn_if_unknown=False)
+
+    await panel_custom.async_register_panel(
+        hass=hass,
         frontend_url_path=PANEL_PATH,
+        webcomponent_name=PANEL_ELEMENT,
+        module_url=PANEL_URL,
         sidebar_title=sidebar_title,
         sidebar_icon="mdi:timer-cog-outline",
         require_admin=False,
-        show_in_sidebar=True,
-        config={
-            "_panel_custom": {
-                "name": PANEL_ELEMENT,
-                "embed_iframe": False,
-                "trust_external": False,
-                "js_url": PANEL_URL,
-            }
-        },
-        update=True,
+        config={},
+        config_panel_domain=DOMAIN,
+        embed_iframe=False,
     )
-
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up from a config entry."""
     manager = OneShotScheduleManager(hass)
     await manager.async_initialize()
     hass.data[DOMAIN][entry.entry_id] = manager
-    _register_sidebar_panel(hass)
+    await _register_sidebar_panel(hass)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
