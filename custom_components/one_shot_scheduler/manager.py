@@ -18,33 +18,42 @@ from homeassistant.util import dt as dt_util
 from .const import EVENT_UPDATED, STORAGE_KEY, STORAGE_VERSION
 
 _LOGGER = logging.getLogger(__name__)
+VALID_ACTIONS = {"on", "off", "none"}
 
 
 @dataclass(slots=True)
 class OneShotSchedule:
-    """A single one-shot switch schedule."""
+    """A single one-shot schedule."""
 
     id: str
     entity_id: str
-    start: str
-    end: str
+    start: str | None
+    end: str | None
+    start_action: str
+    end_action: str
     created_at: str
 
     @property
-    def start_dt(self) -> datetime:
-        """Return start in UTC."""
+    def start_dt(self) -> datetime | None:
+        if self.start is None:
+            return None
         parsed = dt_util.parse_datetime(self.start)
         if parsed is None:
             raise ValueError(f"Invalid start datetime: {self.start}")
         return dt_util.as_utc(parsed)
 
     @property
-    def end_dt(self) -> datetime:
-        """Return end in UTC."""
+    def end_dt(self) -> datetime | None:
+        if self.end is None:
+            return None
         parsed = dt_util.parse_datetime(self.end)
         if parsed is None:
             raise ValueError(f"Invalid end datetime: {self.end}")
         return dt_util.as_utc(parsed)
+
+    @property
+    def sort_dt(self) -> datetime:
+        return self.start_dt or self.end_dt or dt_util.utcnow()
 
 
 class OneShotScheduleManager:
@@ -52,37 +61,42 @@ class OneShotScheduleManager:
 
     def __init__(self, hass: HomeAssistant) -> None:
         self.hass = hass
-        self._store: Store[dict[str, Any]] = Store(
-            hass, STORAGE_VERSION, STORAGE_KEY
-        )
+        self._store: Store[dict[str, Any]] = Store(hass, STORAGE_VERSION, STORAGE_KEY)
         self._schedules: dict[str, OneShotSchedule] = {}
         self._unsubs: dict[str, list[Callable[[], None]]] = {}
         self._listeners: list[Callable[[], None]] = []
 
     @property
     def schedules(self) -> list[OneShotSchedule]:
-        """Return schedules sorted by start time."""
-        return sorted(self._schedules.values(), key=lambda item: item.start_dt)
+        return sorted(self._schedules.values(), key=lambda item: item.sort_dt)
 
     async def async_initialize(self) -> None:
-        """Load schedules and restore pending work."""
+        """Load schedules, including migration from the original on/off format."""
         stored = await self._store.async_load() or {}
-        raw_schedules = stored.get("schedules", [])
+        migrated = False
 
-        for item in raw_schedules:
+        for raw in stored.get("schedules", []):
+            item = dict(raw)
+            if "start_action" not in item:
+                item["start_action"] = "on"
+                migrated = True
+            if "end_action" not in item:
+                item["end_action"] = "off"
+                migrated = True
+
             try:
                 schedule = OneShotSchedule(**item)
-                _ = schedule.start_dt
-                _ = schedule.end_dt
+                self._validate_schedule_fields(schedule)
             except (TypeError, ValueError):
-                _LOGGER.warning("Ignoring invalid stored one-shot schedule: %s", item)
+                _LOGGER.warning("Ignoring invalid stored one-shot schedule: %s", raw)
                 continue
             self._schedules[schedule.id] = schedule
 
         await self._async_restore_after_startup()
+        if migrated:
+            await self._async_save()
 
     async def async_shutdown(self) -> None:
-        """Cancel all in-memory listeners."""
         for unsubs in self._unsubs.values():
             for unsub in unsubs:
                 unsub()
@@ -90,7 +104,6 @@ class OneShotScheduleManager:
 
     @callback
     def async_add_listener(self, listener: Callable[[], None]) -> Callable[[], None]:
-        """Subscribe to schedule changes."""
         self._listeners.append(listener)
 
         @callback
@@ -101,63 +114,78 @@ class OneShotScheduleManager:
         return remove_listener
 
     async def async_create(
-        self, entity_id: str, start: datetime, end: datetime
+        self,
+        entity_id: str,
+        start: datetime | None,
+        end: datetime | None,
+        start_action: str = "on",
+        end_action: str = "off",
     ) -> OneShotSchedule:
-        """Create and arm a one-shot schedule."""
-        state = self.hass.states.get(entity_id)
-        if state is None:
-            raise HomeAssistantError(f"Entity {entity_id} does not exist")
-        if entity_id.split(".", 1)[0] != "switch":
-            raise HomeAssistantError("One Shot Scheduler currently accepts switch entities only")
+        """Create and arm a one-shot schedule with independent boundary actions."""
+        self._validate_entity(entity_id)
 
-        start_utc = dt_util.as_utc(start)
-        end_utc = dt_util.as_utc(end)
+        if start_action not in VALID_ACTIONS or end_action not in VALID_ACTIONS:
+            raise HomeAssistantError("Action must be on, off, or none")
+        if start_action == "none" and end_action == "none":
+            raise HomeAssistantError("At least one action must do something")
+        if start_action != "none" and start is None:
+            raise HomeAssistantError("Start time is required when start action is enabled")
+        if end_action != "none" and end is None:
+            raise HomeAssistantError("End time is required when end action is enabled")
+
+        start_utc = dt_util.as_utc(start) if start is not None else None
+        end_utc = dt_util.as_utc(end) if end is not None else None
         now = dt_util.utcnow()
 
-        if end_utc <= start_utc:
+        if start_utc is not None and end_utc is not None and end_utc <= start_utc:
             raise HomeAssistantError("End time must be after start time")
-        if end_utc <= now:
+        if start_utc is not None and start_action != "none" and start_utc < now - timedelta(seconds=2):
+            raise HomeAssistantError("Start time must not be in the past")
+        if end_utc is not None and end_action != "none" and end_utc <= now:
             raise HomeAssistantError("End time must be in the future")
 
         schedule = OneShotSchedule(
             id=uuid4().hex[:12],
             entity_id=entity_id,
-            start=start_utc.isoformat(),
-            end=end_utc.isoformat(),
+            start=start_utc.isoformat() if start_utc is not None else None,
+            end=end_utc.isoformat() if end_utc is not None else None,
+            start_action=start_action,
+            end_action=end_action,
             created_at=now.isoformat(),
         )
         self._schedules[schedule.id] = schedule
         self._arm_schedule(schedule)
         await self._async_save()
 
-        if start_utc <= now < end_utc:
-            await self._async_apply_entity_state(entity_id, now)
+        if start_utc is not None and start_action != "none" and start_utc <= now:
+            await self._async_execute_action(entity_id, start_action)
+            if end_utc is None:
+                self._remove_schedule(schedule.id)
+                await self._async_save()
 
         self._notify_updated()
         return schedule
 
     async def async_add_time(self, entity_id: str, minutes: int) -> OneShotSchedule:
-        """Turn a switch on now and add time to its current active window."""
+        """Turn on now and cumulatively extend a standard quick timer."""
         if minutes < 1:
             raise HomeAssistantError("Minutes must be positive")
-
-        state = self.hass.states.get(entity_id)
-        if state is None:
-            raise HomeAssistantError(f"Entity {entity_id} does not exist")
-        if entity_id.split(".", 1)[0] != "switch":
-            raise HomeAssistantError("One Shot Scheduler currently accepts switch entities only")
+        self._validate_entity(entity_id)
 
         now = dt_util.utcnow()
         active = [
             schedule
             for schedule in self._schedules.values()
             if schedule.entity_id == entity_id
+            and schedule.start_action == "on"
+            and schedule.end_action == "off"
+            and schedule.start_dt is not None
+            and schedule.end_dt is not None
             and schedule.start_dt <= now < schedule.end_dt
         ]
-        base_end = max((schedule.end_dt for schedule in active), default=now)
+        base_end = max((schedule.end_dt for schedule in active if schedule.end_dt), default=now)
         new_end = base_end + timedelta(minutes=minutes)
 
-        # Collapse active schedules for this entity into one extended window.
         for schedule in active:
             self._remove_schedule(schedule.id)
 
@@ -166,103 +194,89 @@ class OneShotScheduleManager:
             entity_id=entity_id,
             start=now.isoformat(),
             end=new_end.isoformat(),
+            start_action="on",
+            end_action="off",
             created_at=now.isoformat(),
         )
         self._schedules[schedule.id] = schedule
         self._arm_schedule(schedule)
         await self._async_save()
-        await self._async_apply_entity_state(entity_id, now)
+        await self._async_execute_action(entity_id, "on")
         self._notify_updated()
         return schedule
 
     async def async_cancel(self, schedule_id: str) -> bool:
-        """Cancel a schedule. If active, restore the entity based on remaining schedules."""
-        schedule = self._schedules.get(schedule_id)
-        if schedule is None:
+        """Cancel a schedule without changing the entity's current state."""
+        if schedule_id not in self._schedules:
             return False
-
-        now = dt_util.utcnow()
-        was_active = schedule.start_dt <= now < schedule.end_dt
-        entity_id = schedule.entity_id
-
         self._remove_schedule(schedule_id)
         await self._async_save()
-
-        if was_active:
-            await self._async_apply_entity_state(entity_id, now)
-
         self._notify_updated()
         return True
 
     async def async_clear(self) -> None:
-        """Cancel every schedule, turning off entities whose active schedule was removed."""
-        now = dt_util.utcnow()
-        active_entities = {
-            schedule.entity_id
-            for schedule in self._schedules.values()
-            if schedule.start_dt <= now < schedule.end_dt
-        }
-
+        """Cancel all schedules without changing entity states."""
         for schedule_id in list(self._schedules):
             self._remove_schedule(schedule_id)
         await self._async_save()
-
-        for entity_id in active_entities:
-            await self._async_apply_entity_state(entity_id, now)
-
         self._notify_updated()
 
     async def _async_restore_after_startup(self) -> None:
-        """Reconcile schedules after a Home Assistant restart."""
+        """Catch up missed actions and re-arm future boundaries."""
         now = dt_util.utcnow()
-        expired_entities: set[str] = set()
-        active_entities: set[str] = set()
-        removed = False
+        changed = False
 
         for schedule_id, schedule in list(self._schedules.items()):
-            if schedule.end_dt <= now:
-                expired_entities.add(schedule.entity_id)
+            start_dt = schedule.start_dt
+            end_dt = schedule.end_dt
+
+            if end_dt is not None and end_dt <= now:
+                if schedule.end_action != "none":
+                    await self._async_execute_action(schedule.entity_id, schedule.end_action)
                 self._remove_schedule(schedule_id)
-                removed = True
+                changed = True
                 continue
 
-            if schedule.start_dt <= now < schedule.end_dt:
-                active_entities.add(schedule.entity_id)
+            if start_dt is not None and start_dt <= now and schedule.start_action != "none":
+                await self._async_execute_action(schedule.entity_id, schedule.start_action)
+                if end_dt is None:
+                    self._remove_schedule(schedule_id)
+                    changed = True
+                    continue
+
             self._arm_schedule(schedule)
 
-        for entity_id in active_entities | expired_entities:
-            await self._async_apply_entity_state(entity_id, now)
-
-        if removed:
+        if changed:
             await self._async_save()
         self._notify_updated()
 
     @callback
     def _arm_schedule(self, schedule: OneShotSchedule) -> None:
-        """Attach one-shot time listeners for future boundaries."""
         self._cancel_listeners(schedule.id)
         now = dt_util.utcnow()
         unsubs: list[Callable[[], None]] = []
+        start_dt = schedule.start_dt
+        end_dt = schedule.end_dt
 
-        if schedule.start_dt > now:
+        if start_dt is not None and schedule.start_action != "none" and start_dt > now:
             unsubs.append(
                 async_track_point_in_utc_time(
                     self.hass,
                     lambda _now, sid=schedule.id: self.hass.async_create_task(
                         self._async_handle_start(sid)
                     ),
-                    schedule.start_dt,
+                    start_dt,
                 )
             )
 
-        if schedule.end_dt > now:
+        if end_dt is not None and schedule.end_action != "none" and end_dt > now:
             unsubs.append(
                 async_track_point_in_utc_time(
                     self.hass,
                     lambda _now, sid=schedule.id: self.hass.async_create_task(
                         self._async_handle_end(sid)
                     ),
-                    schedule.end_dt,
+                    end_dt,
                 )
             )
 
@@ -272,34 +286,50 @@ class OneShotScheduleManager:
         schedule = self._schedules.get(schedule_id)
         if schedule is None:
             return
-        await self._async_apply_entity_state(schedule.entity_id, dt_util.utcnow())
+        await self._async_execute_action(schedule.entity_id, schedule.start_action)
+
+        if schedule.end_dt is None or schedule.end_action == "none":
+            self._remove_schedule(schedule_id)
+            await self._async_save()
         self._notify_updated()
 
     async def _async_handle_end(self, schedule_id: str) -> None:
         schedule = self._schedules.get(schedule_id)
         if schedule is None:
             return
-
-        entity_id = schedule.entity_id
+        await self._async_execute_action(schedule.entity_id, schedule.end_action)
         self._remove_schedule(schedule_id)
         await self._async_save()
-        await self._async_apply_entity_state(entity_id, dt_util.utcnow())
         self._notify_updated()
 
-    async def _async_apply_entity_state(self, entity_id: str, now: datetime) -> None:
-        """Turn entity on iff at least one schedule currently covers now."""
-        should_be_on = any(
-            schedule.entity_id == entity_id
-            and schedule.start_dt <= now < schedule.end_dt
-            for schedule in self._schedules.values()
-        )
-        service = SERVICE_TURN_ON if should_be_on else SERVICE_TURN_OFF
+    async def _async_execute_action(self, entity_id: str, action: str) -> None:
+        if action == "none":
+            return
+        service = SERVICE_TURN_ON if action == "on" else SERVICE_TURN_OFF
         await self.hass.services.async_call(
             "homeassistant",
             service,
             {"entity_id": entity_id},
             blocking=True,
         )
+
+    def _validate_entity(self, entity_id: str) -> None:
+        state = self.hass.states.get(entity_id)
+        if state is None:
+            raise HomeAssistantError(f"Entity {entity_id} does not exist")
+        if entity_id.split(".", 1)[0] != "switch":
+            raise HomeAssistantError(
+                "One Shot Scheduler currently accepts switch entities only"
+            )
+
+    @staticmethod
+    def _validate_schedule_fields(schedule: OneShotSchedule) -> None:
+        if schedule.start_action not in VALID_ACTIONS or schedule.end_action not in VALID_ACTIONS:
+            raise ValueError("Invalid action")
+        if schedule.start_action != "none" and schedule.start_dt is None:
+            raise ValueError("Missing start time")
+        if schedule.end_action != "none" and schedule.end_dt is None:
+            raise ValueError("Missing end time")
 
     @callback
     def _remove_schedule(self, schedule_id: str) -> None:
