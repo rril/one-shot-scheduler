@@ -21,6 +21,27 @@ create:
       selector:
         text:
 
+add_time:
+  name: Add time now
+  description: Turn a switch on immediately and add minutes to its current active one-shot window.
+  fields:
+    entity_id:
+      name: Switch
+      required: true
+      selector:
+        entity:
+          domain: switch
+    minutes:
+      name: Minutes to add
+      required: true
+      example: 30
+      selector:
+        number:
+          min: 1
+          max: 10080
+          step: 1
+          mode: box
+
 cancel:
   name: Cancel schedule
   description: Cancel one pending or active one-shot schedule.
