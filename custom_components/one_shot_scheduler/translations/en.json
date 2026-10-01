@@ -1,0 +1,21 @@
+{
+  "title": "One Shot Scheduler",
+  "config": {
+    "step": {
+      "user": {
+        "title": "One Shot Scheduler",
+        "description": "Add the one-shot scheduler to Home Assistant. No additional configuration is required."
+      }
+    },
+    "abort": {
+      "already_configured": "One Shot Scheduler is already configured."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "schedules": {
+        "name": "Schedules"
+      }
+    }
+  }
+}
