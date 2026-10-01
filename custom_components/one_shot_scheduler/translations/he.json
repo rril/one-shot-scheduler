@@ -29,14 +29,9 @@
     "sensor": {
       "schedules": {
         "name": "תזמונים"
-      }
-    },
-    "button": {
-      "quick_30": {
-        "name": "{name} · +30 דקות"
       },
-      "quick_60": {
-        "name": "{name} · +שעה"
+      "shortcut": {
+        "name": "טיימר {name}"
       }
     }
   }
