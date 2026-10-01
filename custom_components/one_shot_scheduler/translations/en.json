@@ -15,12 +15,12 @@
     "step": {
       "init": {
         "title": "Overview shortcuts",
-        "description": "Choose switches for which quick-timer buttons should be created. These button entities can be added to Favorites on the automatic Overview dashboard.",
+        "description": "Choose switches that should get a Favorite-compatible shortcut entity on the automatic Overview dashboard.",
         "data": {
-          "overview_shortcuts": "Switches for Overview Favorites"
+          "overview_shortcuts": "Switches for Overview shortcuts"
         },
         "data_description": {
-          "overview_shortcuts": "Each selected switch gets a +30 minute and +1 hour button. Repeated presses extend the active timer."
+          "overview_shortcuts": "Each selected switch gets one shortcut entity. Tapping that Favorite opens One Shot Scheduler with the switch already selected."
         }
       }
     }
