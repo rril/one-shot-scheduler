@@ -20,6 +20,7 @@ from homeassistant.util import dt as dt_util
 from .const import (
     CARD_URL,
     DOMAIN,
+    FRONTEND_VERSION,
     PANEL_ELEMENT,
     PANEL_PATH,
     PANEL_URL,
@@ -78,7 +79,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             StaticPathConfig(PANEL_URL, str(PANEL_FILE), False),
         ]
     )
-    frontend.add_extra_js_url(hass, CARD_URL)
+    frontend.add_extra_js_url(hass, f"{CARD_URL}?v={FRONTEND_VERSION}")
 
     async def handle_create(call: ServiceCall) -> None:
         manager = _get_manager(hass)
@@ -125,7 +126,7 @@ async def _register_sidebar_panel(hass: HomeAssistant) -> None:
         hass=hass,
         frontend_url_path=PANEL_PATH,
         webcomponent_name=PANEL_ELEMENT,
-        module_url=PANEL_URL,
+        module_url=f"{PANEL_URL}?v={FRONTEND_VERSION}",
         sidebar_title=sidebar_title,
         sidebar_icon="mdi:timer-cog-outline",
         require_admin=False,
