@@ -1,23 +1,26 @@
+// Convert Favorite clicks on scheduler shortcut entities into navigation.
+if (!window.__oneShotSchedulerShortcutHookInstalledV2) {
+  window.__oneShotSchedulerShortcutHookInstalledV2 = true;
 
-// Automatic Overview Favorites render entities with Home Assistant's normal
-// more-info behavior. Turn our dedicated shortcut sensor into a local
-// navigation action instead, so a Favorite opens the scheduler with the
-// underlying switch preselected.
-if (!window.__oneShotSchedulerShortcutHookInstalled) {
-  window.__oneShotSchedulerShortcutHookInstalled = true;
+  const handleSchedulerShortcut = (event) => {
+    if (event.__oneShotSchedulerHandled) return;
 
-  window.addEventListener("hass-more-info", (event) => {
-    const entityId = event?.detail?.entityId || event?.detail?.entity_id;
+    const entityId =
+      event?.detail?.entityId ||
+      event?.detail?.entity_id ||
+      event?.detail?.entity ||
+      null;
     if (!entityId) return;
 
-    const homeAssistant = document.querySelector("home-assistant");
-    const hass = homeAssistant?.hass;
+    const root = document.querySelector("home-assistant");
+    const hass = root?.hass;
     const state = hass?.states?.[entityId];
     if (state?.attributes?.one_shot_scheduler_shortcut !== "true") return;
 
     const sourceEntityId = state.attributes.source_entity_id;
     if (!sourceEntityId) return;
 
+    event.__oneShotSchedulerHandled = true;
     event.preventDefault?.();
     event.stopImmediatePropagation?.();
     event.stopPropagation?.();
@@ -25,7 +28,13 @@ if (!window.__oneShotSchedulerShortcutHookInstalled) {
     const url = `/one-shot-scheduler?entity=${encodeURIComponent(sourceEntityId)}`;
     history.pushState(null, "", url);
     window.dispatchEvent(new Event("location-changed"));
-  }, true);
+  };
+
+  // Home Assistant's dialog events can originate inside nested shadow roots.
+  // Capture at both document and window so the shortcut wins before the
+  // default More Info handler regardless of where the Favorite is rendered.
+  document.addEventListener("hass-more-info", handleSchedulerShortcut, true);
+  window.addEventListener("hass-more-info", handleSchedulerShortcut, true);
 }
 
 class OneShotSchedulerCard extends HTMLElement {
