@@ -11,7 +11,7 @@ from uuid import uuid4
 from homeassistant.const import SERVICE_TURN_OFF, SERVICE_TURN_ON
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
-from homeassistant.helpers.event import async_track_point_in_utc_time
+from homeassistant.helpers.event import async_track_point_in_utc_time, async_track_time_interval
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
@@ -65,6 +65,7 @@ class OneShotScheduleManager:
         self._schedules: dict[str, OneShotSchedule] = {}
         self._unsubs: dict[str, list[Callable[[], None]]] = {}
         self._listeners: list[Callable[[], None]] = []
+        self._cleanup_unsub: Callable[[], None] | None = None
 
     @property
     def schedules(self) -> list[OneShotSchedule]:
@@ -96,7 +97,17 @@ class OneShotScheduleManager:
         if migrated:
             await self._async_save()
 
+        self._cleanup_unsub = async_track_time_interval(
+            self.hass,
+            self._async_periodic_cleanup,
+            timedelta(minutes=1),
+        )
+
     async def async_shutdown(self) -> None:
+        if self._cleanup_unsub is not None:
+            self._cleanup_unsub()
+            self._cleanup_unsub = None
+
         for unsubs in self._unsubs.values():
             for unsub in unsubs:
                 unsub()
@@ -249,6 +260,43 @@ class OneShotScheduleManager:
         if changed:
             await self._async_save()
         self._notify_updated()
+
+    async def _async_periodic_cleanup(self, _now: datetime) -> None:
+        """Remove schedules whose final boundary has already passed."""
+        now = dt_util.utcnow()
+        changed = False
+
+        for schedule_id, schedule in list(self._schedules.items()):
+            end_dt = schedule.end_dt
+            start_dt = schedule.start_dt
+
+            # Normal two-boundary / end-only schedules expire at end.
+            if end_dt is not None and end_dt <= now:
+                if schedule.end_action != "none":
+                    await self._async_execute_action(
+                        schedule.entity_id, schedule.end_action
+                    )
+                self._remove_schedule(schedule_id)
+                changed = True
+                continue
+
+            # Start-only schedules should disappear once their start boundary
+            # has passed, even if a previous callback was missed.
+            if (
+                end_dt is None
+                and start_dt is not None
+                and start_dt <= now
+            ):
+                if schedule.start_action != "none":
+                    await self._async_execute_action(
+                        schedule.entity_id, schedule.start_action
+                    )
+                self._remove_schedule(schedule_id)
+                changed = True
+
+        if changed:
+            await self._async_save()
+            self._notify_updated()
 
     @callback
     def _arm_schedule(self, schedule: OneShotSchedule) -> None:
