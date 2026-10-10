@@ -352,12 +352,20 @@ class OneShotSchedulerCard extends HTMLElement {
     if (!this.shadowRoot || !this._hass) return;
     const container = this.shadowRoot.getElementById("schedules");
     if (!container) return;
-    const schedules = this._getSchedules();
+    const now = Date.now();
+    const schedules = this._getSchedules().filter(item => {
+      const finalTime =
+        item.end && item.end_action !== "none"
+          ? new Date(item.end).getTime()
+          : item.start && item.start_action !== "none"
+            ? new Date(item.start).getTime()
+            : null;
+      return finalTime === null || Number.isNaN(finalTime) || finalTime > now;
+    });
     if (!schedules.length) {
       container.innerHTML = `<div class="empty">${this._t("none")}</div>`;
       return;
     }
-    const now = Date.now();
     container.innerHTML = schedules.map(item => {
       const entity = this._hass.states[item.entity_id];
       const name = this._escape(entity?.attributes?.friendly_name || item.entity_id);
