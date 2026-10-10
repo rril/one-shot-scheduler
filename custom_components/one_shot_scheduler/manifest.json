@@ -13,5 +13,5 @@
   "documentation": "https://github.com/rril/one-shot-scheduler",
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/rril/one-shot-scheduler/issues",
-  "version": "0.7.0"
+  "version": "0.7.1"
 }
